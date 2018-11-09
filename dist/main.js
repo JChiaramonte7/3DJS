@@ -93,17 +93,29 @@ __webpack_require__.r(__webpack_exports__);
 /* harmony import */ var lodash__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(1);
 /* harmony import */ var lodash__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__webpack_require__.n(lodash__WEBPACK_IMPORTED_MODULE_0__);
 /* harmony import */ var _utils_js__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(4);
-/* harmony import */ var _top_down_controller_js__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(5);
+/* harmony import */ var _wrappers_scene__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(11);
+/* harmony import */ var _set__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(12);
+/* harmony import */ var _top_down_controller_js__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(5);
+/* harmony import */ var _player_js__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(6);
+/* harmony import */ var _wrappers_mesh__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(8);
+/* harmony import */ var _wrappers_camera__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(9);
+
+
+
+
+
+
 
 
 
 
 let prevTime = performance.now();
 
-let scene = new THREE.Scene();
-let camera = new THREE.PerspectiveCamera( 75, window.innerWidth/window.innerHeight, 0.1, 1000 );
+let set = new _set__WEBPACK_IMPORTED_MODULE_3__["default"]();
+let scene = new _wrappers_scene__WEBPACK_IMPORTED_MODULE_2__["default"]();
+let camera = new _wrappers_camera__WEBPACK_IMPORTED_MODULE_7__["default"]();
 
-let controller = new _top_down_controller_js__WEBPACK_IMPORTED_MODULE_2__["default"](camera);
+
 
 var renderer = new THREE.WebGLRenderer();
 renderer.setSize( window.innerWidth, window.innerHeight );
@@ -116,15 +128,28 @@ var cube = new THREE.Mesh( geometry, material );
 cube.position.x = 2;
 scene.add( cube );
 
-camera.position.z = 5;
+var geometry = new THREE.PlaneGeometry( 1, 1, 0);
+var material = new THREE.MeshBasicMaterial( {color: 0xffff00, side: THREE.DoubleSide} );
+var plane = new THREE.Mesh( geometry, material );
+scene.add( plane );
 
-window.addEventListener( 'resize', onWindowResize, false );
+//camera.position.z = 5;
 
-function onWindowResize() {
-	camera.aspect = window.innerWidth / window.innerHeight;
-	camera.updateProjectionMatrix();
-	renderer.setSize( window.innerWidth, window.innerHeight );
-}
+let controller = new _top_down_controller_js__WEBPACK_IMPORTED_MODULE_4__["default"]();
+
+let player = new _player_js__WEBPACK_IMPORTED_MODULE_5__["default"]();
+player.addProp({
+	type: "Mesh",
+	object: plane
+})
+player.addProp({
+	type: "Camera",
+	object: camera
+})
+
+set.registerActor(player) 
+
+set.registerSystem(controller)
 
 var stats = new Stats();
 stats.showPanel( 0 ); // 0: fps, 1: ms, 2: mb, 3+: custom
@@ -133,22 +158,30 @@ document.body.appendChild( stats.dom );
 let animate = function() {
 	requestAnimationFrame( animate );
 
-	stats.begin();
-
 	let time = performance.now();
 	var delta = ( time - prevTime ) / 1000;
 
-	controller.update(delta);
+	//stats.begin();
+
+	set.update(delta);
 
 	renderer.render( scene, camera );
 
-	stats.end();
+	//stats.end();
 
 	prevTime = time;
 
 	};
 
 animate();
+
+
+window.addEventListener( 'resize', onWindowResize, false );
+function onWindowResize() {
+	camera.aspect = window.innerWidth / window.innerHeight;
+	camera.updateProjectionMatrix();
+	renderer.setSize( window.innerWidth, window.innerHeight );
+}
 
 /***/ }),
 /* 1 */
@@ -17328,23 +17361,22 @@ function print(string) {
 "use strict";
 __webpack_require__.r(__webpack_exports__);
 /* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return TopDownController; });
+/* harmony import */ var _ecs_system__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(10);
+
+
 
 const controls = {
-	w: 'movingForward',
-	s: 'movingBackwards',
+	w: 'movingUp',
+	s: 'movingDown',
 	a: 'movingLeft',
 	d: 'movingRight',
-	' ': 'movingUp',
-	shift: 'movingDown'
 }
 
-class TopDownController {
+class TopDownController extends _ecs_system__WEBPACK_IMPORTED_MODULE_0__["default"] {
 
-	constructor(camera) {
-
+	constructor() {
+		super();
 		this.states = {
-			movingForward: false,
-			movingBackwards: false,
 			movingLeft: false,
 			movingRight: false,
 			movingUp: false,
@@ -17352,7 +17384,6 @@ class TopDownController {
 		}
 
 		this.velocity = new THREE.Vector3();
-		this.camera = camera;
 
 		document.addEventListener('keydown', (event) => {
 			let key = event.key || event.keyCode;
@@ -17368,13 +17399,8 @@ class TopDownController {
 
 	update(deltaTime) {
 
-		//Friction
 		this.velocity.multiplyScalar(.75); 
 
-		if (this.states.movingForward)
-			this.velocity.z = _.clamp(this.velocity.z - 2 * deltaTime, -.1, 0);
-		if (this.states.movingBackwards)
-			this.velocity.z = _.clamp(this.velocity.z + 2 * deltaTime, 0, .1);
 		if (this.states.movingLeft)
 			this.velocity.x = _.clamp(this.velocity.x - 2 * deltaTime, -.1, 0);
 		if (this.states.movingRight)
@@ -17383,11 +17409,172 @@ class TopDownController {
 			this.velocity.y = _.clamp(this.velocity.y - 2 * deltaTime, -.1, 0);
 		if (this.states.movingUp)
 			this.velocity.y = _.clamp(this.velocity.y + 2 * deltaTime, 0, .1);	
-		
-		this.camera.position.x += this.velocity.x;
-		this.camera.position.y += this.velocity.y;
-		this.camera.position.z += this.velocity.z;
 
+		this.set.actors.forEach( actor => {
+
+			if (actor.name == "player") {
+
+				actor.props.forEach( prop => {
+
+					if ( prop.type === "Mesh" || prop.type === "Camera" ) {
+
+						prop.object.position.x += this.velocity.x;
+						prop.object.position.y += this.velocity.y;
+						prop.object.position.z += this.velocity.z;
+
+					}
+
+				})
+
+			}
+
+			
+
+		})
+
+	}
+
+}
+
+/***/ }),
+/* 6 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return Player; });
+/* harmony import */ var _actor__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(7);
+
+
+class Player extends _actor__WEBPACK_IMPORTED_MODULE_0__["default"] {
+
+	constructor() {
+		super();
+		this.name = "player" ;
+
+	}
+
+}
+
+/***/ }),
+/* 7 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return Actor; });
+/* harmony import */ var _utils__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(4);
+
+
+
+class Actor {
+
+	constructor() {
+		this.position = new THREE.Vector3();
+		this.props = []
+	}
+
+	addProp(prop) {
+		this.props.push(prop);
+	}
+
+	getProps() {
+		return this.props;
+	}
+
+}
+
+/***/ }),
+/* 8 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return Mesh; });
+
+
+class Mesh extends THREE.Mesh {
+	
+}
+
+/***/ }),
+/* 9 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return Camera; });
+
+class Camera extends THREE.PerspectiveCamera {
+	
+	constructor() {
+
+		super(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+		this.position.z = 5;
+
+	}
+
+}
+
+/***/ }),
+/* 10 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return System; });
+
+
+class System {
+
+	update(deltaTime) {
+
+	}
+
+}
+
+/***/ }),
+/* 11 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return Scene; });
+
+class Scene extends THREE.Scene {
+
+}
+
+/***/ }),
+/* 12 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+__webpack_require__.r(__webpack_exports__);
+/* harmony export (binding) */ __webpack_require__.d(__webpack_exports__, "default", function() { return Set; });
+
+
+class Set {
+
+	constructor() {
+		this.actors = [];
+		this.systems = [];
+	}
+
+	registerActor(actor) {
+		actor.set = this;
+		this.actors.push(actor);
+	}
+
+	registerSystem(system) {
+		system.set = this;
+		this.systems.push(system);
+	}
+
+	update(delta) {
+		if (!this.systems)
+			return
+		this.systems.forEach(system => system.update(delta));
 	}
 
 }

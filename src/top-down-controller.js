@@ -1,20 +1,18 @@
 
+import System from './ecs/system';
+
 const controls = {
-	w: 'movingForward',
-	s: 'movingBackwards',
+	w: 'movingUp',
+	s: 'movingDown',
 	a: 'movingLeft',
 	d: 'movingRight',
-	' ': 'movingUp',
-	shift: 'movingDown'
 }
 
-export default class TopDownController {
+export default class TopDownController extends System {
 
-	constructor(camera) {
-
+	constructor() {
+		super();
 		this.states = {
-			movingForward: false,
-			movingBackwards: false,
 			movingLeft: false,
 			movingRight: false,
 			movingUp: false,
@@ -22,7 +20,6 @@ export default class TopDownController {
 		}
 
 		this.velocity = new THREE.Vector3();
-		this.camera = camera;
 
 		document.addEventListener('keydown', (event) => {
 			let key = event.key || event.keyCode;
@@ -38,13 +35,8 @@ export default class TopDownController {
 
 	update(deltaTime) {
 
-		//Friction
 		this.velocity.multiplyScalar(.75); 
 
-		if (this.states.movingForward)
-			this.velocity.z = _.clamp(this.velocity.z - 2 * deltaTime, -.1, 0);
-		if (this.states.movingBackwards)
-			this.velocity.z = _.clamp(this.velocity.z + 2 * deltaTime, 0, .1);
 		if (this.states.movingLeft)
 			this.velocity.x = _.clamp(this.velocity.x - 2 * deltaTime, -.1, 0);
 		if (this.states.movingRight)
@@ -53,10 +45,28 @@ export default class TopDownController {
 			this.velocity.y = _.clamp(this.velocity.y - 2 * deltaTime, -.1, 0);
 		if (this.states.movingUp)
 			this.velocity.y = _.clamp(this.velocity.y + 2 * deltaTime, 0, .1);	
-		
-		this.camera.position.x += this.velocity.x;
-		this.camera.position.y += this.velocity.y;
-		this.camera.position.z += this.velocity.z;
+
+		this.set.actors.forEach( actor => {
+
+			if (actor.name == "player") {
+
+				actor.props.forEach( prop => {
+
+					if ( prop.type === "Mesh" || prop.type === "Camera" ) {
+
+						prop.object.position.x += this.velocity.x;
+						prop.object.position.y += this.velocity.y;
+						prop.object.position.z += this.velocity.z;
+
+					}
+
+				})
+
+			}
+
+			
+
+		})
 
 	}
 
